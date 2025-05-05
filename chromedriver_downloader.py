@@ -16,13 +16,13 @@ class ChromeDriverDownloader:
         self.data = None
         self.legacy_data = None
         self.platform_map = {
-            "windows": ["win64", "win32"],  # Adicionado suporte para win32
+            "windows": ["win64", "win32"],  # Added support for win32
             "linux": ["linux64"]
         }
-        # Mapeamento para URLs de download legados
+        # Mapping for legacy download URLs
         self.legacy_platform_map = {
             "windows": {
-                "x64": "win32",  # No legado, win32 funciona para ambas arquiteturas
+                "x64": "win32",  # In legacy, win32 works for both architectures
                 "x86": "win32"
             },
             "linux": {
@@ -32,26 +32,26 @@ class ChromeDriverDownloader:
         }
     
     def fetch_versions(self):
-        """Busca as versoes disponiveis da API do Chrome for Testing"""
+        """Fetches available versions from Chrome for Testing API"""
         try:
             response = requests.get(self.json_url)
             response.raise_for_status()
             self.data = response.json()
             return True
         except requests.RequestException as e:
-            print(f"Erro ao buscar versoes: {e}")
+            print(f"Error fetching versions: {e}")
             return False
     
     def fetch_legacy_versions(self):
-        """Busca as versoes legadas disponÃ­veis no repositÃ³rio antigo"""
+        """Fetches legacy versions available in the old repository"""
         try:
             response = requests.get(self.legacy_url + "?delimiter=/&prefix=")
             response.raise_for_status()
             
-            # Analisar o XML retornado
+            # Parse the returned XML
             root = ET.fromstring(response.content)
             
-            # Extrair as versÃµes disponÃ­veis (prefixos que terminam com /)
+            # Extract available versions (prefixes ending with /)
             versions = []
             namespace = {'ns': 'http://doc.s3.amazonaws.com/2006-03-01'}
             for prefix in root.findall('.//ns:CommonPrefixes/ns:Prefix', namespace):
@@ -62,11 +62,11 @@ class ChromeDriverDownloader:
             self.legacy_data = versions
             return True
         except (requests.RequestException, ET.ParseError) as e:
-            print(f"Erro ao buscar versoes legadas: {e}")
+            print(f"Error fetching legacy versions: {e}")
             return False
     
     def get_legacy_download_url(self, version, platform, arch):
-        """Gera a URL de download para versÃµes legadas"""
+        """Generates download URL for legacy versions"""
         platform_key = self.legacy_platform_map.get(platform.lower(), {}).get(arch)
         if not platform_key:
             return None
@@ -74,10 +74,10 @@ class ChromeDriverDownloader:
         return f"{self.legacy_url}{version}/chromedriver_{platform_key}.zip"
     
     def get_filtered_versions(self, platform=None, version_filter=None, arch=None, latest_only=False, include_legacy=True):
-        """Filtra as versoes disponiveis por plataforma, versao e arquitetura"""
+        """Filters available versions by platform, version and architecture"""
         filtered_versions = []
         
-        # Buscar versÃµes modernas
+        # Fetch modern versions
         if not self.data:
             if not self.fetch_versions():
                 return []
@@ -86,29 +86,29 @@ class ChromeDriverDownloader:
         if platform:
             platform_keys = self.platform_map.get(platform.lower())
             if arch:
-                # Filtrar por arquitetura especÃ­fica
+                # Filter by specific architecture
                 if arch == "x64" and platform.lower() == "windows":
                     platform_keys = ["win64"]
                 elif arch == "x86" and platform.lower() == "windows":
                     platform_keys = ["win32"]
         
-        # Processar versÃµes modernas
+        # Process modern versions
         for version_info in self.data.get("versions", []):
             version = version_info.get("version", "")
             
-            # Filtrar por versao se especificado
+            # Filter by version if specified
             if version_filter:
-                # Extrair o nÃºmero principal da versÃ£o (antes do primeiro ponto)
+                # Extract the major version number (before the first dot)
                 major_version = version.split('.')[0]
                 if major_version != version_filter:
                     continue
             
-            # Verificar se hÃ¡ downloads de chromedriver disponiveis
+            # Check if there are chromedriver downloads available
             downloads = version_info.get("downloads", {}).get("chromedriver", [])
             if not downloads:
                 continue
             
-            # Filtrar por plataforma e arquitetura se especificado
+            # Filter by platform and architecture if specified
             if platform_keys:
                 platform_downloads = [d for d in downloads if d.get("platform") in platform_keys]
                 if not platform_downloads:
@@ -122,7 +122,7 @@ class ChromeDriverDownloader:
                         "source": "modern"
                     })
             else:
-                # Incluir todas as plataformas disponiveis
+                # Include all available platforms
                 for download in downloads:
                     filtered_versions.append({
                         "version": version,
@@ -131,24 +131,24 @@ class ChromeDriverDownloader:
                         "source": "modern"
                     })
         
-        # Buscar versÃµes legadas se solicitado
+        # Fetch legacy versions if requested
         if include_legacy:
             if not self.legacy_data:
                 if not self.fetch_legacy_versions():
-                    print("Aviso: NÃ£o foi possÃ­vel obter versÃµes legadas.")
+                    print("Warning: Could not obtain legacy versions.")
                 
             if self.legacy_data:
                 for version in self.legacy_data:
-                    # Filtrar por versao se especificado
+                    # Filter by version if specified
                     if version_filter:
                         major_version = version.split('.')[0]
                         if major_version != version_filter:
                             continue
                     
-                    # Para cada plataforma/arquitetura suportada
+                    # For each supported platform/architecture
                     if platform:
                         if arch:
-                            # Arquitetura especÃ­fica
+                            # Specific architecture
                             download_url = self.get_legacy_download_url(version, platform, arch)
                             if download_url:
                                 platform_key = self.legacy_platform_map[platform.lower()][arch]
@@ -159,7 +159,7 @@ class ChromeDriverDownloader:
                                     "source": "legacy"
                                 })
                         else:
-                            # Todas as arquiteturas para a plataforma
+                            # All architectures for the platform
                             for arch_option in ["x64", "x86"]:
                                 download_url = self.get_legacy_download_url(version, platform, arch_option)
                                 if download_url:
@@ -171,7 +171,7 @@ class ChromeDriverDownloader:
                                         "source": "legacy"
                                     })
                     else:
-                        # Todas as plataformas e arquiteturas
+                        # All platforms and architectures
                         for plat in self.legacy_platform_map:
                             for arch_option in self.legacy_platform_map[plat]:
                                 download_url = self.get_legacy_download_url(version, plat, arch_option)
@@ -184,9 +184,9 @@ class ChromeDriverDownloader:
                                         "source": "legacy"
                                     })
         
-        # Se latest_only for True, retorna apenas a versÃ£o mais recente de cada versÃ£o principal
+        # If latest_only is True, return only the latest version of each major version
         if latest_only and filtered_versions:
-            # Agrupar versÃµes por versÃ£o principal e plataforma
+            # Group versions by major version and platform
             latest_versions = {}
             for version_info in filtered_versions:
                 version = version_info["version"]
@@ -197,13 +197,13 @@ class ChromeDriverDownloader:
                 if key not in latest_versions or self._compare_versions(version, latest_versions[key]["version"]) > 0:
                     latest_versions[key] = version_info
             
-            # Converter o dicionÃ¡rio de volta para uma lista
+            # Convert the dictionary back to a list
             filtered_versions = list(latest_versions.values())
         
         return filtered_versions
     
     def _compare_versions(self, version1, version2):
-        """Compara duas versÃµes e retorna 1 se version1 > version2, -1 se version1 < version2, 0 se iguais"""
+        """Compares two versions and returns 1 if version1 > version2, -1 if version1 < version2, 0 if equal"""
         v1_parts = [int(x) for x in version1.split('.')]
         v2_parts = [int(x) for x in version2.split('.')]
         
@@ -219,60 +219,60 @@ class ChromeDriverDownloader:
         return 0
     
     def list_versions(self, platform=None, version_filter=None, arch=None, latest_only=False, include_legacy=True):
-        """Lista as versoes disponiveis com filtros opcionais"""
+        """Lists available versions with optional filters"""
         versions = self.get_filtered_versions(platform, version_filter, arch, latest_only, include_legacy)
         
         if not versions:
-            print("Nenhuma versao encontrada com os filtros especificados.")
+            print("No versions found with the specified filters.")
             return
         
-        print(f"Versoes disponiveis ({len(versions)}):")
+        print(f"Available versions ({len(versions)}):")
         for i, version_info in enumerate(versions, 1):
             platform_str = version_info['platform']
             arch_str = "x64" if platform_str.endswith("64") else "x86"
-            source_str = "[Legado]" if version_info.get('source') == 'legacy' else ""
-            print(f"{i}. Versao: {version_info['version']} - Plataforma: {platform_str} ({arch_str}) {source_str}")
+            source_str = "[Legacy]" if version_info.get('source') == 'legacy' else ""
+            print(f"{i}. Version: {version_info['version']} - Platform: {platform_str} ({arch_str}) {source_str}")
         
         return versions
     
     def download_driver(self, download_url, output_dir, version, is_legacy=False):
-        """Faz o download e extrai o chromedriver"""
+        """Downloads and extracts the chromedriver"""
         try:
-            print(f"Baixando ChromeDriver versao {version}...")
+            print(f"Downloading ChromeDriver version {version}...")
             response = requests.get(download_url, stream=True)
             response.raise_for_status()
             
-            # Criar diretorio de saÃ­da principal se nao existir
+            # Create main output directory if it doesn't exist
             if not os.path.exists(output_dir):
-                print(f"Criando diretorio de saida: {output_dir}")
+                print(f"Creating output directory: {output_dir}")
                 os.makedirs(output_dir, exist_ok=True)
             
-            # Criar diretorio de versÃ£o se nao existir
+            # Create version directory if it doesn't exist
             major_version = version.split('.')[0]
             output_path = os.path.join(output_dir, f"{major_version}.0")
             os.makedirs(output_path, exist_ok=True)
             
-            # Salvar o arquivo zip temporariamente
+            # Save the zip file temporarily
             temp_zip_path = os.path.join(output_path, "chromedriver_temp.zip")
             with open(temp_zip_path, 'wb') as f:
                 f.write(response.content)
             
-            # Extrair o arquivo zip para um diretÃ³rio temporÃ¡rio
+            # Extract the zip file to a temporary directory
             temp_extract_dir = os.path.join(output_path, "temp_extract")
             os.makedirs(temp_extract_dir, exist_ok=True)
             
             with zipfile.ZipFile(temp_zip_path, 'r') as zip_ref:
                 zip_ref.extractall(temp_extract_dir)
             
-            # Processar diferentemente dependendo se Ã© legado ou moderno
+            # Process differently depending on whether it's legacy or modern
             if is_legacy:
-                # VersÃµes legadas tÃªm o chromedriver diretamente na raiz do zip
+                # Legacy versions have the chromedriver directly in the root of the zip
                 source_dir = temp_extract_dir
             else:
-                # Mover os arquivos do diretÃ³rio chromedriver para o diretÃ³rio de destino
+                # Move files from the chromedriver directory to the destination directory
                 chromedriver_dir = os.path.join(temp_extract_dir, "chromedriver-win64")
                 if not os.path.exists(chromedriver_dir):
-                    # Tentar outras variaÃ§Ãµes comuns do nome do diretÃ³rio
+                    # Try other common directory name variations
                     possible_dirs = [
                         os.path.join(temp_extract_dir, "chromedriver-win32"),
                         os.path.join(temp_extract_dir, "chromedriver"),
@@ -285,14 +285,14 @@ class ChromeDriverDownloader:
                 
                 source_dir = chromedriver_dir if os.path.exists(chromedriver_dir) else temp_extract_dir
             
-            # Copiar os arquivos para o diretÃ³rio de destino
+            # Copy files to the destination directory
             if os.path.exists(source_dir):
-                # Mover todos os arquivos do diretÃ³rio fonte para o diretÃ³rio de destino
+                # Move all files from the source directory to the destination directory
                 for item in os.listdir(source_dir):
                     item_path = os.path.join(source_dir, item)
                     dest_path = os.path.join(output_path, item)
                     
-                    # Se o destino jÃ¡ existir, remover primeiro
+                    # If the destination already exists, remove it first
                     if os.path.exists(dest_path):
                         if os.path.isdir(dest_path):
                             import shutil
@@ -300,7 +300,7 @@ class ChromeDriverDownloader:
                         else:
                             os.remove(dest_path)
                     
-                    # Mover o arquivo/diretÃ³rio
+                    # Move the file/directory
                     if os.path.isdir(item_path):
                         import shutil
                         shutil.copytree(item_path, dest_path)
@@ -308,33 +308,33 @@ class ChromeDriverDownloader:
                         import shutil
                         shutil.copy2(item_path, dest_path)
             
-            # Limpar arquivos temporÃ¡rios
+            # Clean up temporary files
             import shutil
             if os.path.exists(temp_zip_path):
                 os.remove(temp_zip_path)
             if os.path.exists(temp_extract_dir):
                 shutil.rmtree(temp_extract_dir)
             
-            print(f"ChromeDriver baixado e extraido com sucesso em: {output_path}")
+            print(f"ChromeDriver downloaded and extracted successfully to: {output_path}")
             return True
         except Exception as e:
-            print(f"Erro ao baixar ou extrair o driver: {e}")
+            print(f"Error downloading or extracting driver: {e}")
             return False
     
     def find_missing_drivers(self, drivers_dir, platform, arch=None, latest_only=False, include_legacy=True):
-        """Identifica drivers faltantes comparando com os disponiveis online"""
-        # Criar o diretÃ³rio se nÃ£o existir
+        """Identifies missing drivers by comparing with those available online"""
+        # Create the directory if it doesn't exist
         if not os.path.isdir(drivers_dir):
-            print(f"O diretorio {drivers_dir} nao existe. Criando diretorio...")
+            print(f"Directory {drivers_dir} does not exist. Creating directory...")
             os.makedirs(drivers_dir, exist_ok=True)
         
-        # Obter todas as versoes disponiveis para a plataforma e arquitetura
+        # Get all available versions for the platform and architecture
         all_versions = self.get_filtered_versions(platform, None, arch, latest_only, include_legacy)
         if not all_versions:
-            print("Nao foi possivel obter a lista de versoes disponiveis.")
+            print("Could not obtain the list of available versions.")
             return []
         
-        # Mapear versoes principais para URLs de download
+        # Map major versions to download URLs
         version_map = {}
         for version_info in all_versions:
             major_version = version_info["version"].split('.')[0]
@@ -344,11 +344,11 @@ class ChromeDriverDownloader:
                 "is_legacy": version_info.get("source") == "legacy"
             }
         
-        # Listar diretorios existentes
+        # List existing directories
         existing_dirs = [d for d in os.listdir(drivers_dir) 
                          if os.path.isdir(os.path.join(drivers_dir, d))]
         
-        # Encontrar versoes faltantes
+        # Find missing versions
         missing_versions = []
         for version_dir, info in version_map.items():
             if version_dir not in existing_dirs:
@@ -362,132 +362,139 @@ class ChromeDriverDownloader:
         return missing_versions
 
 def main():
-    parser = argparse.ArgumentParser(description="Gerenciador de download para ChromeDriver")
-    subparsers = parser.add_subparsers(dest="command", help="Comandos disponiveis")
+    parser = argparse.ArgumentParser(description="Download Manager for ChromeDriver")
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
     
-    # Comando para listar versoes
-    list_parser = subparsers.add_parser("list", help="Listar versoes disponiveis")
+    # Command to list versions
+    list_parser = subparsers.add_parser("list", help="List available versions")
     list_parser.add_argument("--platform", choices=["windows", "linux"], 
-                            help="Filtrar por plataforma (windows ou linux)")
-    list_parser.add_argument("--version", help="Filtrar por versao (ex: '114')")
+                            help="Filter by platform (windows or linux)")
+    list_parser.add_argument("--version", help="Filter by version (e.g., '114')")
     list_parser.add_argument("--arch", choices=["x86", "x64"],
-                            help="Filtrar por arquitetura (x86 ou x64)")
+                            help="Filter by architecture (x86 or x64)")
     list_parser.add_argument("--latest", action="store_true",
-                            help="Retornar apenas a versÃ£o mais recente de cada versÃ£o principal")
+                            help="Return only the latest version of each major version")
     list_parser.add_argument("--no-legacy", action="store_true",
-                            help="NÃ£o incluir versÃµes legadas do chromedriver")
+                            help="Do not include legacy chromedriver versions")
     
-    # Comando para baixar uma versao especifica
-    download_parser = subparsers.add_parser("download", help="Baixar uma versao especifica")
+    # Command to download a specific version
+    download_parser = subparsers.add_parser("download", help="Download a specific version")
     download_parser.add_argument("--platform", choices=["windows", "linux"], required=True,
-                               help="Plataforma (windows ou linux)")
+                               help="Platform (windows or linux)")
     download_parser.add_argument("--version", required=True, 
-                               help="versao a ser baixada (ex: '114.0.5735.90')")
+                               help="Version to download (e.g., '114.0.5735.90')")
     download_parser.add_argument("--output", default="./drivers",
-                               help="diretorio de saida (padrao: ./drivers)")
+                               help="Output directory (default: ./drivers)")
     download_parser.add_argument("--arch", choices=["x86", "x64"], default="x64",
-                               help="Arquitetura (x86 ou x64, padrao: x64)")
+                               help="Architecture (x86 or x64, default: x64)")
     download_parser.add_argument("--latest", action="store_true",
-                               help="Baixar apenas a versÃ£o mais recente se a versÃ£o especificada for uma versÃ£o principal")
+                               help="Download only the latest version if the specified version is a major version")
     download_parser.add_argument("--no-legacy", action="store_true",
-                               help="NÃ£o incluir versÃµes legadas do chromedriver")
+                               help="Do not include legacy chromedriver versions")
     
-    # Comando para verificar drivers faltantes
-    missing_parser = subparsers.add_parser("missing", help="Verificar drivers faltantes")
+    # Command to check for missing drivers
+    missing_parser = subparsers.add_parser("missing", help="Check for missing drivers")
     missing_parser.add_argument("--dir", required=True,
-                              help="diretorio contendo os drivers existentes")
+                              help="Directory containing existing drivers")
     missing_parser.add_argument("--platform", choices=["windows", "linux"], required=True,
-                              help="Plataforma (windows ou linux)")
+                              help="Platform (windows or linux)")
     missing_parser.add_argument("--download", action="store_true",
-                              help="Baixar automaticamente os drivers faltantes")
+                              help="Automatically download missing drivers")
     missing_parser.add_argument("--arch", choices=["x86", "x64"], default="x64",
-                              help="Arquitetura (x86 ou x64, padrao: x64)")
+                              help="Architecture (x86 or x64, default: x64)")
     missing_parser.add_argument("--latest", action="store_true",
-                              help="Considerar apenas as versÃµes mais recentes de cada versÃ£o principal")
+                              help="Consider only the latest versions of each major version")
     missing_parser.add_argument("--no-legacy", action="store_true",
-                              help="NÃ£o incluir versÃµes legadas do chromedriver")
+                              help="Do not include legacy chromedriver versions")
     
     args = parser.parse_args()
     
     downloader = ChromeDriverDownloader()
     
-    # Determinar se deve incluir versÃµes legadas
+    # Determine whether to include legacy versions
     include_legacy = not getattr(args, 'no_legacy', False)
     
     if args.command == "list":
         downloader.list_versions(args.platform, args.version, args.arch, args.latest, include_legacy)
     
     elif args.command == "download":
-        # Atualizar para usar o parÃ¢metro de arquitetura e latest
+        # Update to use architecture and latest parameters
         arch = args.arch
         latest_only = args.latest
         
-        # Se latest_only for True e a versÃ£o for apenas um nÃºmero principal (ex: "114"),
-        # buscar apenas a versÃ£o mais recente dessa versÃ£o principal
+        # If latest_only is True and the version is just a major number, get the latest version
         if latest_only and args.version and args.version.isdigit():
-            versions = downloader.get_filtered_versions(args.platform, args.version, arch, True, include_legacy)
-            if versions:
-                version_info = versions[0]  # Pega a primeira (e Ãºnica) versÃ£o mais recente
-                is_legacy = version_info.get("source") == "legacy"
-                print(f"Baixando a versÃ£o mais recente do ChromeDriver {args.version}: {version_info['version']} {'(Legado)' if is_legacy else ''}")
-                downloader.download_driver(version_info["download_url"], args.output, version_info["version"], is_legacy)
-                return
-        
-        # Caso contrÃ¡rio, continua com o comportamento normal
-        versions = downloader.get_filtered_versions(args.platform, args.version, arch, False, include_legacy)
-        if not versions:
-            print(f"Versao {args.version} nao encontrada para a plataforma {args.platform} ({arch}).")
-            return
-        
-        # Encontrar a correspondencia exata ou a mais proxima
-        exact_match = None
-        for version_info in versions:
-            if version_info["version"] == args.version:
-                exact_match = version_info
-                break
-        
-        if exact_match:
-            is_legacy = exact_match.get("source") == "legacy"
-            downloader.download_driver(exact_match["download_url"], args.output, args.version, is_legacy)
-        else:
-            print(f"versao exata {args.version} nao encontrada. versoes disponiveis:")
-            for i, version_info in enumerate(versions[:5], 1):
-                source_str = "(Legado)" if version_info.get("source") == "legacy" else ""
-                print(f"{i}. {version_info['version']} {source_str}")
+            versions = downloader.get_filtered_versions(
+                platform=args.platform, 
+                version_filter=args.version,
+                arch=arch,
+                latest_only=True,
+                include_legacy=include_legacy
+            )
             
-            choice = input("Selecione uma versao para baixar (nÃºmero) ou 'q' para sair: ")
-            if choice.lower() != 'q' and choice.isdigit() and 1 <= int(choice) <= len(versions):
-                selected = versions[int(choice) - 1]
-                is_legacy = selected.get("source") == "legacy"
-                downloader.download_driver(selected["download_url"], args.output, selected["version"], is_legacy)
+            if versions:
+                # Use the first (and only) version that matches
+                version_info = versions[0]
+                print(f"Using latest version: {version_info['version']}")
+                downloader.download_driver(
+                    download_url=version_info["download_url"],
+                    output_dir=args.output,
+                    version=version_info["version"],
+                    is_legacy=version_info.get("source") == "legacy"
+                )
+            else:
+                print(f"No version found matching: {args.version}")
+        else:
+            # Try to find an exact match for the specified version
+            versions = downloader.get_filtered_versions(
+                platform=args.platform,
+                arch=arch,
+                include_legacy=include_legacy
+            )
+            
+            # Filter for exact version match
+            matching_versions = [v for v in versions if v["version"] == args.version]
+            
+            if matching_versions:
+                version_info = matching_versions[0]
+                downloader.download_driver(
+                    download_url=version_info["download_url"],
+                    output_dir=args.output,
+                    version=version_info["version"],
+                    is_legacy=version_info.get("source") == "legacy"
+                )
+            else:
+                print(f"Version {args.version} not found for platform {args.platform} and architecture {arch}")
     
     elif args.command == "missing":
-        # Atualizar para usar o parÃ¢metro de arquitetura e latest
-        arch = args.arch
-        latest_only = args.latest
-        missing = downloader.find_missing_drivers(args.dir, args.platform, arch, latest_only, include_legacy)
+        # Find missing drivers
+        missing = downloader.find_missing_drivers(
+            args.dir, 
+            args.platform, 
+            args.arch, 
+            args.latest, 
+            include_legacy
+        )
         
         if not missing:
-            print("nao ha drivers faltantes.")
+            print("No missing drivers found.")
             return
         
-        print(f"Drivers faltantes ({len(missing)}):")
+        print(f"Found {len(missing)} missing drivers:")
         for i, driver_info in enumerate(missing, 1):
-            legacy_str = "(Legado)" if driver_info.get("is_legacy") else ""
-            print(f"{i}. versao: {driver_info['version_dir']} (completa: {driver_info['full_version']}) {legacy_str}")
+            print(f"{i}. {driver_info['version_dir']} (Full version: {driver_info['full_version']})")
         
-        if args.download:
-            print("\nBaixando drivers faltantes...")
+        # Download missing drivers if requested
+        if args.download and missing:
+            print("\nDownloading missing drivers...")
             for driver_info in missing:
+                print(f"\nProcessing {driver_info['version_dir']} (Full version: {driver_info['full_version']})")
                 downloader.download_driver(
-                    driver_info["download_url"], 
-                    args.dir, 
-                    driver_info["full_version"],
-                    driver_info.get("is_legacy", False)
+                    download_url=driver_info["download_url"],
+                    output_dir=args.dir,
+                    version=driver_info["full_version"],
+                    is_legacy=driver_info["is_legacy"]
                 )
-        else:
-            print("\nUse a opcao --download para baixar automaticamente os drivers faltantes.")
-    
     else:
         parser.print_help()
 
